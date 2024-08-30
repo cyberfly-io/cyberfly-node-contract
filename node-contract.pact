@@ -202,7 +202,7 @@
   )
   
   (defun get-all-active-nodes()
-   (select node-table ["peer_id", "multiaddr", "status", "account", "guard", "registered_at","last_updated"] (where 'status (= "active"))
+   (select node-table ["peer_id", "multiaddr", "status", "account", "guard"] (where 'status (= "active"))
   ))
 
   (defun is-node-active(peer_id:string)
@@ -222,7 +222,7 @@
 
 (defun init()
 (with-capability(GOV)
- (write stake-count-table "count" {
+ (insert stake-count-table "count" {
   "total-stakes":0,
   "total-staked-amount":0.0
  })
@@ -390,16 +390,7 @@
 )
 
 (defun get-stakes-stats()
-(with-read stake-count-table "count" {
-  "total-stakes" := total-stakes,
-  "total-stakes-amount" := total-stakes-amount
-}
-
-{"total-stakes" : total-stakes, 
-"total-stakes-amount" : total-stakes-amount
-}
-
-)
+(read stake-count-table "count" ["total-stakes" "total-staked-amount"])
 )
 
 (defun get-user-stakes(account:string)
