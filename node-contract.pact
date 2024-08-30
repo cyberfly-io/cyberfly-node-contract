@@ -76,7 +76,7 @@
 
 (defun new-node(peer_id:string status:string multiaddr:string account:string guard:keyset)
 
-(enforce ((is-node-active peer_id)) "Node already exists")
+(enforce (is-node-active peer_id) "Node already exists")
 (enforce (is-principal account)  "Invalid account structure: non-principal account")
 
 (insert node-table peer_id {
@@ -223,7 +223,7 @@
 (defun init()
 (with-capability(GOV)
  (write stake-count-table "count" {
-  "total-stakes":0
+  "total-stakes":0,
   "total-staked-amount":0.0
  })
 )
@@ -231,7 +231,7 @@
   (defun stake(account:string peer_id:string)
     (with-capability (ACCOUNT_AUTH account)
     (with-capability (NODE_GUARD peer_id)
-      (enforce ((is-node-active peer_id)) "Node does not active")
+      (enforce (is-node-active peer_id) "Node does not active")
       (enforce (not (is-staked account peer_id)) "Already staked on this node")
       (with-default-read stakes-table (format "{}:{}" [account peer_id])
       {
@@ -254,7 +254,7 @@
       {"total-stakes":=total-stakes,
        "total-staked-amount":=total-staked-amount}
       (update stake-count-table "count" {
-        "total-stakes": (+ total-stakes 1)
+        "total-stakes": (+ total-stakes 1),
         "total-staked-amount": (+ total-staked-amount STAKE_AMOUNT)
       }
       (free.cyberfly.transfer account STAKING_VAULT_ACCOUNT STAKE_AMOUNT)
@@ -292,10 +292,8 @@
           )
           (if (> reward 0.0)
           [
-            (with-default-read stakes-table (format "{}:{}" [account peer_id])
-            {
-              "claimed":0.0
-             }
+            (with-read stakes-table (format "{}:{}" [account peer_id])
+            
              {
               "claimed":=claimed
              }
@@ -319,11 +317,13 @@
 
 (defun calculate-days-and-reward (account:string peer_id:string)
     (with-default-read stakes-table (format "{}:{}" [account peer_id])
-      { "last_claim" := (at "block-time" (chain-data)), "active" := false }
-      { "last_claim" := last_claim, "active" := active }
+      { "last_claim" : (at "block-time" (chain-data)), 
+        "active" : false }
+      { "last_claim" := last_claim, 
+         "active" := active }
    (enforce active "Stake is not active")
-   (enforce ((is-node-active peer_id)) "Node is not active")
-   (with-read stakes-count-table "count" {
+   (enforce (is-node-active peer_id) "Node is not active")
+   (with-read stake-count-table "count" {
     "total-stakes":=total-stakes
    }
    (let* (
@@ -350,14 +350,15 @@
     (with-capability (ACCOUNT_AUTH account)
     (with-capability (BANK_DEBIT)
       (enforce (is-staked account peer_id) "Not staked on this node")
-      (enforce ((is-node-active peer_id)) "Node does not active")
+      (enforce (is-node-active peer_id) "Node does not active")
         (let* (
           (calc-result (calculate-days-and-reward account peer_id))
           (reward (at "reward" calc-result))
-          (enforce (> reward 0.0) "No rewards to claim")
-          (with-read stakes-table (format "{}:{}" [account peer_id])
+        )
+ (enforce (> reward 0.0) "No rewards to claim")
+   (with-read stakes-table (format "{}:{}" [account peer_id])
            {
-            "claimed":=claimed
+            "claimed":= claimed
            }
           (update stakes-table (format "{}:{}" [account, peer_id]){
             "last-claimed": (at "block-time" (chain-data)),
@@ -366,15 +367,14 @@
           (free.cyberfly.transfer REWARDS_VAULT_ACCOUNT account reward)
           (format "Claimed {} rewards for account {} from node {}" [reward account peer_id])
           )
-        )
-        )
+)
     )
     )
   )
 
 
   (defun calculate-apy ()
-  (with-read stakes-count-table "count"
+  (with-read stake-count-table "count"
     { "total-stakes" := num-stakes }
     (let*
       ((daily-reward-per-stake 
@@ -390,7 +390,7 @@
 )
 
 (defun get-stakes-stats()
-(with-read stakes-count-table "count" {
+(with-read stake-count-table "count" {
   "total-stakes" := total-stakes,
   "total-stakes-amount" := total-stakes-amount
 }
@@ -431,8 +431,9 @@
 (defun create-BANK_DEBIT-guard ()
   (create-user-guard (require-BANK_DEBIT))
 )
-  )
-  
+
+
+)
 (create-table node-table)
 (create-table stakes-table)
 (create-table stake-count-table)
