@@ -47,7 +47,7 @@
 
   (defconst STAKE_AMOUNT 50000.0)
   (defconst TOTAL_REWARD 40000000.0) ; 40% of 100,000,000 tokens
-  (defconst DISTRIBUTION_DAYS (* 15.0 365.25))
+  (defconst DISTRIBUTION_DAYS (* 10.0 365.25))
   (defconst TOTAL_DAILY_REWARD (/ TOTAL_REWARD DISTRIBUTION_DAYS))
 
   
@@ -377,13 +377,20 @@
   (with-read stake-count-table "count"
     { "total-stakes" := num-stakes }
     (let*
-      ((daily-reward-per-stake 
-        (if (= num-stakes 0)
-            0.0
-            (/ (* TOTAL_DAILY_REWARD 10000) num-stakes))) ; Multiply by 10000 for precision
-       (annual-reward-per-stake (/ (* daily-reward-per-stake * 365.25) 10000))
-       (apy (/ (* annual-reward-per-stake 10000) STAKE_AMOUNT)))
-      (/ apy 100.0)))) ; Divide by 100.0 to get percentage
+      (
+        (daily-reward-per-stake 
+          (if (= num-stakes 0)
+              (/ (* TOTAL_DAILY_REWARD 10000) 1.0)
+              (/ (* TOTAL_DAILY_REWARD 10000) num-stakes) ; Multiply by 10000 for precision
+              
+              )) 
+        (annual-reward-per-stake (/ (* daily-reward-per-stake 365.25) 10000))
+        (apy (/ (* annual-reward-per-stake 10000) STAKE_AMOUNT))
+      )
+      (round (/ apy 100.0) 2)
+    )
+  )
+) 
 
 (defun get-active-stakes ()
 (select stakes-table (where "active" (= true)))
