@@ -71,7 +71,7 @@
   true
 )
 
-(defun is-node-account (peer_id:string, account:string)
+(defun is-node-account (peer_id:string account:string)
 (with-read node-table peer_id
   {"account":=node_account}
 (= node_account account)
