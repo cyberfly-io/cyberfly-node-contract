@@ -38,16 +38,13 @@
       total-staked-amount:decimal
      )
 
-
-   
-
    (deftable node-table:{node-schema})
    (deftable stakes-table:{stake-schema})
    (deftable stake-count-table:{stake-count-schema})
 
   (defconst STAKE_AMOUNT 50000.0)
   (defconst TOTAL_REWARD 40000000.0) ; 40% of 100,000,000 tokens
-  (defconst DISTRIBUTION_DAYS (* 10.0 365.25))
+  (defconst DISTRIBUTION_DAYS (* 15.0 365.25))
   (defconst TOTAL_DAILY_REWARD (/ TOTAL_REWARD DISTRIBUTION_DAYS))
 
   
@@ -56,7 +53,7 @@
      (enforce-guard guard)
      )
   )
-  
+
   (defcap ACCOUNT_AUTH (account:string)
   @doc "Capability to ensure the caller is the account owner"
   (enforce-guard (at "guard" (coin.details account)))
@@ -73,6 +70,14 @@
   (defcap PRIVATE ()
   true
 )
+
+(defun is-node-account (peer_id:string, account:string)
+(with-read node-table peer_id
+  {"account":=node_account}
+(= node_account account)
+)
+)
+
 
 (defun new-node(peer_id:string status:string multiaddr:string account:string guard:keyset)
 
@@ -101,7 +106,7 @@
   }
 
    (if (and (= status "active") (!= node_status status))
-   [  (update stakes-table (format "{}:{}" [account peer_id]) {
+   [  (update stakes-table peer_id {
     "last-claim":  (at "block-time" (chain-data))
   })]
   [
@@ -128,12 +133,12 @@
     "account":=account,
     "status":=node_status
   }
-  (if(is-staked account peer_id)
+  (if(is-staked peer_id)
   
   (if(!= node_status status)
   [ 
    
-    (update stakes-table (format "{}:{}" [account peer_id]) {
+    (update stakes-table peer_id {
       "last-claim": (at "block-time" (chain-data))
     }) 
   ]
@@ -141,19 +146,19 @@
   )
   (if(and (= status "inactive") (!= node_status status))
   (let* (
-    (calc-result (calculate-days-and-reward account peer_id))
+    (calc-result (calculate-days-and-reward peer_id))
     (reward (at "reward" calc-result))
 )
   (if (> reward 0.0)
   [
-    (with-default-read stakes-table (format "{}:{}" [account peer_id])
+    (with-default-read stakes-table peer_id
     {
       "claimed":0.0
      }
      {
       "claimed":=claimed
      }
-    (update stakes-table (format "{}:{}" [account, peer_id]){
+    (update stakes-table peer_id {
       "last-claimed":  (at "block-time" (chain-data)),
       "claimed": (+ claimed reward)
     })
@@ -187,18 +192,9 @@
   ))
   
   (defun get-node(peer_id:string)
-   (with-default-read node-table peer_id
-    {
-      "last_updated": (at "block-time" (chain-data))
-    }
-    {
-           "multiaddr":=multiaddr
-           ,"account":=account
-           ,"status":=status
-           , "guard":=guard
-           , "last_updated":=last_updated
-   }
-   {"peer_id":peer_id , "multiaddr":multiaddr, "status":status, "guard":guard, "account":account, "last_updated":last_updated  })
+
+  (read node-table peer_id ["multiaddr", "account", "status", "guard"])
+   
   )
   
   (defun get-all-active-nodes()
@@ -212,13 +208,22 @@
     (= status "active")
   )
 )
-(defun is-staked (account:string peer_id:string)
-(with-default-read stakes-table (format "{}:{}" [account peer_id])
+(defun is-staked (peer_id:string)
+(with-default-read stakes-table peer_id
   { "active": false }
   { "active" := active }
   active
 )
 )
+
+(defun is-staked-account (account:string peer_id:string)
+(with-read stakes-table peer_id
+  { "account" := staked_account }
+  (= staked_account account)
+)
+)
+
+
 
 (defun init()
 (with-capability(GOV)
@@ -231,16 +236,17 @@
   (defun stake(account:string peer_id:string)
     (with-capability (ACCOUNT_AUTH account)
     (with-capability (NODE_GUARD peer_id)
-      (enforce (is-node-active peer_id) "Node does not active")
-      (enforce (not (is-staked account peer_id)) "Already staked on this node")
-      (with-default-read stakes-table (format "{}:{}" [account peer_id])
+      (enforce (is-node-active peer_id) "Node is not active")
+      (enforce (is-node-account peer_id account) "Account is not matching")
+      (enforce (not (is-staked peer_id)) "Already staked on this node")
+      (with-default-read stakes-table peer_id
       {
       "claimed":0.0
       }
       {
       "claimed":=claimed
       }
-      (write stakes-table (format "{}:{}" [account peer_id]) {
+      (write stakes-table peer_id {
         "account": account,
         "peer_id": peer_id,
         "active": true,
@@ -261,9 +267,7 @@
       (format "Staked {} for account {} on node {}" [STAKE_AMOUNT account peer_id])
       )
       )
-     
       )
-    
     )
   )
   )
@@ -271,14 +275,16 @@
   (defun unstake(account:string peer_id:string)
   (with-capability (ACCOUNT_AUTH account)
     (with-capability (BANK_DEBIT)
-      (enforce (is-staked account peer_id) "Not staked on this node")
-      (with-read stakes-table (format "{}:{}" [account peer_id])
-        { "amount" := amount}
+      (enforce (is-staked peer_id) "Not staked on this node")
+      (enforce (is-staked-account account peer_id) "Account not matching")
+      (with-read stakes-table peer_id
+        { "amount" := amount,
+          "account":=staked_account}
         (let* (
-            (calc-result (calculate-days-and-reward account peer_id))
+            (calc-result (calculate-days-and-reward peer_id))
             (reward (at "reward" calc-result))
         )
-          (update stakes-table (format "{}:{}" [account peer_id])
+          (update stakes-table peer_id
             { "active": false, "amount": 0.0 }
           )
           (with-read stake-count-table "count"
@@ -292,31 +298,31 @@
           )
           (if (> reward 0.0)
           [
-            (with-read stakes-table (format "{}:{}" [account peer_id])
+            (with-read stakes-table peer_id
             
              {
               "claimed":=claimed
              }
-            (update stakes-table (format "{}:{}" [account, peer_id]){
+            (update stakes-table peer_id {
               "last-claimed":  (at "block-time" (chain-data)),
               "claimed": (+ claimed reward)
             })
-            (free.cyberfly.transfer REWARDS_VAULT_ACCOUNT account reward)
+            (free.cyberfly.transfer REWARDS_VAULT_ACCOUNT staked_account reward)
             )
 
           ]
           "No pending reward"
           )
-          (free.cyberfly.transfer STAKING_VAULT_ACCOUNT account amount)
-          (format "Unstaked {} and rewarded {} for account {} from node {}" [amount reward account peer_id])
+          (free.cyberfly.transfer STAKING_VAULT_ACCOUNT staked_account amount)
+          (format "Unstaked {} and rewarded {} for account {} from node {}" [amount reward staked_account peer_id])
         )
       )
     )
   )
 )
 
-(defun calculate-days-and-reward (account:string peer_id:string)
-    (with-default-read stakes-table (format "{}:{}" [account peer_id])
+(defun calculate-days-and-reward (peer_id:string)
+    (with-default-read stakes-table peer_id
       { "last_claim" : (at "block-time" (chain-data)), 
         "active" : false }
       { "last_claim" := last_claim, 
@@ -349,18 +355,19 @@
 (defun claim-reward (account:string peer_id:string)
     (with-capability (ACCOUNT_AUTH account)
     (with-capability (BANK_DEBIT)
-      (enforce (is-staked account peer_id) "Not staked on this node")
+      (enforce (is-staked peer_id) "Not staked on this node")
+      (enforce (is-staked-account account peer_id) "Account not matching")
       (enforce (is-node-active peer_id) "Node does not active")
         (let* (
-          (calc-result (calculate-days-and-reward account peer_id))
+          (calc-result (calculate-days-and-reward peer_id))
           (reward (at "reward" calc-result))
         )
  (enforce (> reward 0.0) "No rewards to claim")
-   (with-read stakes-table (format "{}:{}" [account peer_id])
+   (with-read stakes-table peer_id
            {
             "claimed":= claimed
            }
-          (update stakes-table (format "{}:{}" [account, peer_id]){
+          (update stakes-table peer_id {
             "last-claimed": (at "block-time" (chain-data)),
             "claimed": (+ claimed reward)
           })
@@ -392,8 +399,17 @@
   )
 ) 
 
+(defun get-node-stake(peer_id:string)
+(read stakes-table peer_id
+)
+)
+
 (defun get-active-stakes ()
 (select stakes-table (where "active" (= true)))
+)
+
+(defun get-account-nodes (account:string)
+(select node-table (where "account" (= account)))
 )
 
 (defun get-stakes-stats()
