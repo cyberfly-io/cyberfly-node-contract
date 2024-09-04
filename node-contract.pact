@@ -49,7 +49,7 @@
 
   
   (defcap NODE_GUARD (peer_id:string)
-   (with-read node-table peer_id{"guard":=guard}
+   (with-read node-table peer_id {"guard":=guard}
      (enforce-guard guard)
      )
   )
@@ -236,9 +236,19 @@
   (defun stake(account:string peer_id:string)
     (with-capability (ACCOUNT_AUTH account)
     (with-capability (NODE_GUARD peer_id)
-      (enforce (is-node-active peer_id) "Node is not active")
-      (enforce (is-node-account peer_id account) "Account is not matching")
-      (enforce (not (is-staked peer_id)) "Already staked on this node")
+      
+      
+      (let* (
+      (node-active (is-node-active peer_id))
+      (node-account (is-node-account peer_id account))
+      (staked (is-staked peer_id))
+      )
+      (enforce node-active "Node is not active")
+      (enforce node-account "Account is not matching")
+      (enforce (not staked) "Already staked on this node")
+      )
+    
+
       (with-default-read stakes-table peer_id
       {
       "claimed":0.0
@@ -263,11 +273,11 @@
         "total-stakes": (+ total-stakes 1),
         "total-staked-amount": (+ total-staked-amount STAKE_AMOUNT)
       }
+      )
+      )
+      )
       (free.cyberfly.transfer account STAKING_VAULT_ACCOUNT STAKE_AMOUNT)
       (format "Staked {} for account {} on node {}" [STAKE_AMOUNT account peer_id])
-      )
-      )
-      )
     )
   )
   )
@@ -275,8 +285,14 @@
   (defun unstake(account:string peer_id:string)
   (with-capability (ACCOUNT_AUTH account)
     (with-capability (BANK_DEBIT)
-      (enforce (is-staked peer_id) "Not staked on this node")
-      (enforce (is-staked-account account peer_id) "Account not matching")
+      (let* (
+        (staked (is-staked peer_id))
+        (staked-account (is-staked-account account peer_id))
+        )
+        (enforce staked "Not staked on this node")
+        (enforce staked-account "Account not matching")
+        )
+
       (with-read stakes-table peer_id
         { "amount" := amount,
           "account":=staked_account}
@@ -309,7 +325,6 @@
             })
             (free.cyberfly.transfer REWARDS_VAULT_ACCOUNT staked_account reward)
             )
-
           ]
           "No pending reward"
           )
@@ -328,7 +343,12 @@
       { "last_claim" := last_claim, 
          "active" := active }
    (enforce active "Stake is not active")
-   (enforce (is-node-active peer_id) "Node is not active")
+   (let (
+        (node-active (is-node-active peer_id))
+   )
+   (enforce node-active "Node is not active")
+
+   )
    (with-read stake-count-table "count" {
     "total-stakes":=total-stakes
    }
@@ -355,15 +375,19 @@
 (defun claim-reward (account:string peer_id:string)
     (with-capability (ACCOUNT_AUTH account)
     (with-capability (BANK_DEBIT)
-      (enforce (is-staked peer_id) "Not staked on this node")
-      (enforce (is-staked-account account peer_id) "Account not matching")
-      (enforce (is-node-active peer_id) "Node does not active")
+     
         (let* (
           (calc-result (calculate-days-and-reward peer_id))
           (reward (at "reward" calc-result))
+          (staked (is-staked peer_id))
+          (staked-account (is-staked-account account peer_id))
+          (node-active (is-node-active peer_id))
         )
- (enforce (> reward 0.0) "No rewards to claim")
-   (with-read stakes-table peer_id
+        (enforce staked "Not staked on this node")
+        (enforce staked-account  "Account not matching")
+        (enforce node-active "Node does not active")
+        (enforce (> reward 0.0) "No rewards to claim")
+        (with-read stakes-table peer_id
            {
             "claimed":= claimed
            }
