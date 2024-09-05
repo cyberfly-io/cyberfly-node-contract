@@ -354,7 +354,7 @@
    }
    (let* (
     (current-time (at "block-time" (chain-data)))
-    (days-since-last-claim (/ (diff-time current-time last_claim) 86400.0))
+    (days-since-last-claim (round (/ (diff-time current-time last_claim) 86400.0) 2))
     (reward 
       (if (>= days-since-last-claim 1.0)
         (* (/ TOTAL_DAILY_REWARD total-stakes) days-since-last-claim)
