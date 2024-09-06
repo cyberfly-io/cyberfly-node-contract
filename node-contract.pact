@@ -148,6 +148,7 @@
   (let* (
     (calc-result (calculate-days-and-reward peer_id))
     (reward (at "reward" calc-result))
+    (days (at "days" calc-result))
 )
   (if (> reward 0.0)
   [
@@ -164,10 +165,8 @@
     })
     (install-capability (free.cyberfly.TRANSFER REWARDS_VAULT_ACCOUNT account reward))
     (free.cyberfly.transfer REWARDS_VAULT_ACCOUNT account reward)
-    (format "Node {} disabled and rewarded {} CFLY for an account {}" [peer_id reward account ])
+    (format "Node {} disabled and rewarded {} CFLY for an account {} for ran node for {} days" [peer_id reward account days])
     )
-   
-
   ]
   "No pending reward"
   )
@@ -300,7 +299,9 @@
         (let* (
             (calc-result (calculate-days-and-reward peer_id))
             (reward (at "reward" calc-result))
+            (days (at "days" calc-result))
         )
+        (enforce (= reward 0.0) "Please claim reward before unstake")
           (update stakes-table peer_id
             { "active": false, "amount": 0.0 }
           )
@@ -313,27 +314,9 @@
               "total-staked-amount": (- total-staked-amount STAKE_AMOUNT)
             })
           )
-          (if (> reward 0.0)
-          [
-            (with-read stakes-table peer_id
-            
-             {
-              "claimed":=claimed
-             }
-            (update stakes-table peer_id {
-              "last_claim":  (at "block-time" (chain-data)),
-              "claimed": (+ claimed reward)
-            })
-
-            (install-capability (free.cyberfly.TRANSFER REWARDS_VAULT_ACCOUNT staked_account reward))
-            (free.cyberfly.transfer REWARDS_VAULT_ACCOUNT staked_account reward)
-            )
-          ]
-          "No pending reward"
-          )
           (install-capability (free.cyberfly.TRANSFER STAKING_VAULT_ACCOUNT staked_account amount))
           (free.cyberfly.transfer STAKING_VAULT_ACCOUNT staked_account amount)
-          (format "Unstaked {} CFLY and rewarded {} CFLY for account {} from node {}" [amount reward staked_account peer_id])
+          (format "Unstaked {} CFLY for account {} from node {}" [amount staked_account peer_id])
         )
       )
     )
@@ -382,6 +365,7 @@
         (let* (
           (calc-result (calculate-days-and-reward peer_id))
           (reward (at "reward" calc-result))
+          (days (at "days" calc-result))
           (staked (is-staked peer_id))
           (staked-account (is-staked-account account peer_id))
           (node-active (is-node-active peer_id))
@@ -400,7 +384,7 @@
           })
           (install-capability (free.cyberfly.TRANSFER REWARDS_VAULT_ACCOUNT account reward))
           (free.cyberfly.transfer REWARDS_VAULT_ACCOUNT account reward)
-          (format "Claimed {} CFLY node rewards for account {} from node {}" [reward account peer_id])
+          (format "Claimed {} CFLY node rewards for account {} from node {} running for {} days" [reward account peer_id days])
           )
 )
     )
