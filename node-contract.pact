@@ -123,64 +123,62 @@
   )
   )
   
-  (defun update-node-admin(peer_id:string 
-                  multiaddr:string
-                  status:string)
-                  @doc "node can be updated by monitoring node"
-  (with-capability (ADMIN_GUARD)
-  (with-capability(BANK_DEBIT)
-  (with-read node-table peer_id {
-    "account":=account,
-    "status":=node_status
-  }
-  (if(is-staked peer_id)
-  
-  (if(!= node_status status)
-  [ 
-   
-    (update stakes-table peer_id {
-      "last_claim": (at "block-time" (chain-data))
-    }) 
-  ]
-  []
-  )
-  (if(and (= status "inactive") (!= node_status status))
-  (let* (
-    (calc-result (calculate-days-and-reward peer_id))
-    (reward (at "reward" calc-result))
-    (days (at "days" calc-result))
-)
+  (defun update-node-admin (peer_id:string 
+    multiaddr:string
+    status:string)
+@doc "node can be updated by monitoring node"
+(with-capability (ADMIN_GUARD)
+(with-capability (BANK_DEBIT)
+(with-read node-table peer_id {
+"account" := account,
+"status" := node_status
+}
+(if (is-staked peer_id)
+[
+(if (and (= status "inactive") (!= node_status status))
+[(let* ((calc-result (calculate-days-and-reward peer_id))
+  (reward (at "reward" calc-result))
+  (total-stakes (at "total-stakes" calc-result))
+  (days (at "days" calc-result)))
   (if (> reward 0.0)
   [
-    (with-default-read stakes-table peer_id
-    {
-      "claimed":0.0
-     }
-     {
-      "claimed":=claimed
-     }
-    (update stakes-table peer_id {
-      "last_claim":  (at "block-time" (chain-data)),
-      "claimed": (+ claimed reward)
-    })
-    (install-capability (free.cyberfly.TRANSFER REWARDS_VAULT_ACCOUNT account reward))
-    (free.cyberfly.transfer REWARDS_VAULT_ACCOUNT account reward)
-    (format "Node {} disabled and rewarded {} CFLY for an account {} for ran node for {} days" [peer_id reward account days])
-    )
+  (with-default-read stakes-table peer_id
+  { "claimed" : 0.0 }
+  { "claimed" := claimed }
+  (update stakes-table peer_id {
+    "last_claim" : (at "block-time" (chain-data)),
+    "claimed" : (+ claimed reward)
+  })
+  (install-capability (free.cyberfly.TRANSFER REWARDS_VAULT_ACCOUNT account reward))
+  (free.cyberfly.transfer REWARDS_VAULT_ACCOUNT account reward)
+  (format "Node {} disabled and rewarded {} CFLY for an account {} for ran node for {} days. total stakes - {}" [peer_id reward account days total-stakes])
+  )
   ]
   "No pending reward"
   )
+  )]
+[]
 )
-  )
-  )
-  (update node-table peer_id {
-    "multiaddr":multiaddr
-   ,"status":status
-   ,"last_updated": (at "block-time" (chain-data))
+(if (!= node_status status)
+[ 
+(update stakes-table peer_id {
+"last_claim" : (at "block-time" (chain-data))
 })
-  )
-  )
-  ))
+]
+[]
+)
+]
+[]
+)
+(update node-table peer_id {
+"multiaddr" : multiaddr,
+"status" : status,
+"last_updated" : (at "block-time" (chain-data))
+})
+)
+)
+)
+)
   
   (defun update-node-guard(peer_id:string
     guard:keyset)
@@ -303,7 +301,8 @@
         )
         (enforce (= reward 0.0) "Please claim reward before unstake")
           (update stakes-table peer_id
-            { "active": false, "amount": 0.0 }
+            { "active": false, "amount": 0.0, "last_claim":  (at "block-time" (chain-data))
+          }
           )
           (with-read stake-count-table "count"
             {"total-stakes":= total-stakes,
@@ -352,7 +351,8 @@
   {
     "days": days-since-last-claim,
     "reward": reward,
-    "current-time": current-time
+    "current-time": current-time,
+    "total-stakes":total-stakes
   })
    )
     )
@@ -366,6 +366,7 @@
           (calc-result (calculate-days-and-reward peer_id))
           (reward (at "reward" calc-result))
           (days (at "days" calc-result))
+          (total-stakes (at "total-stakes" calc-result))
           (staked (is-staked peer_id))
           (staked-account (is-staked-account account peer_id))
           (node-active (is-node-active peer_id))
@@ -384,7 +385,7 @@
           })
           (install-capability (free.cyberfly.TRANSFER REWARDS_VAULT_ACCOUNT account reward))
           (free.cyberfly.transfer REWARDS_VAULT_ACCOUNT account reward)
-          (format "Claimed {} CFLY node rewards for account {} from node {} running for {} days" [reward account peer_id days])
+          (format "Claimed {} CFLY node rewards for account {} from node {} running for {} days. total stakes - {}" [reward account peer_id days total-stakes])
           )
 )
     )
