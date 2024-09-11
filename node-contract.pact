@@ -97,11 +97,9 @@
   
   (defun update-node(peer_id:string
                   multiaddr:string
-                  account:string
                   status:string)
   (with-capability (NODE_GUARD peer_id)
   (with-read node-table peer_id {
-    "account":=account,
     "status":=node_status
   }
 
@@ -115,7 +113,6 @@
    )
    (update node-table peer_id {
                   "multiaddr":multiaddr
-                 ,"account":account
                  ,"status":status
                  ,"last_updated": (at "block-time" (chain-data))
                 })
@@ -123,7 +120,7 @@
   )
   )
   
-  (defun update-node-admin (peer_id:string 
+  (defun update-node-admin(peer_id:string 
     multiaddr:string
     status:string)
 @doc "node can be updated by monitoring node"
@@ -180,14 +177,20 @@
 )
 )
   
-  (defun update-node-guard(peer_id:string
+  (defun update-node-account(peer_id:string
+    account:string
     guard:keyset)
-  (with-capability (NODE_GUARD peer_id)
+    @doc "Monitoring node can update node's reward account and guard"
+  (with-capability (ADMIN_GUARD)
+  (enforce (not (is-staked peer_id)) "Updates cannot be made if the asset is already staked.")
   (update node-table peer_id {
    "guard":guard,
+   "account":account,
    "last_updated": (at "block-time" (chain-data))
-  })
-  ))
+  }
+  )
+  )
+  )
   
   (defun get-node(peer_id:string)
 
@@ -447,12 +450,6 @@
 )
   
 
-  (defun withdraw-funds(account:string amount:decimal)
-  (with-capability (ADMIN_GUARD)
-  (with-capability (BANK_DEBIT)
-    (free.cyberfly.transfer account ADMIN_ACCOUNT amount)
-  ))
-)
 
 
   (defun create-cyberfly-user-guard (funder:string amount:decimal account:string)
