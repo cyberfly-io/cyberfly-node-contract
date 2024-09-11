@@ -328,13 +328,10 @@
         "active" : false }
       { "last_claim" := last_claim, 
          "active" := active }
-   (enforce active "Stake is not active")
    (let (
         (node-active (is-node-active peer_id))
    )
-   (enforce node-active "Node is not active")
 
-   )
    (with-read stake-count-table "count" {
     "total-stakes":=total-stakes
    }
@@ -348,12 +345,26 @@
       )
       )
   )
-  {
-    "days": days-since-last-claim,
-    "reward": reward,
-    "current-time": current-time,
-    "total-stakes":total-stakes
-  })
+
+  (if (and active node-active)
+  
+    {
+      "days": days-since-last-claim,
+      "reward": reward,
+      "current-time": current-time,
+      "total-stakes":total-stakes
+    }
+    {
+      "days": days-since-last-claim,
+      "reward": 0.0,
+      "current-time": current-time,
+      "total-stakes":total-stakes 
+    }
+  )
+
+  )
+  
+  )
    )
     )
   )
