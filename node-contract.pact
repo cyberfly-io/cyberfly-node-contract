@@ -3,7 +3,7 @@
 (module  cyberfly_node GOV
   @doc "Cyberfly node register"
   (use coin)
-  (use free.cyberfly)
+  (use free.cyberfly_token)
   (defcap GOV()
   (enforce-keyset "free.cyberfly_team"))
 
@@ -146,8 +146,8 @@
     "last_claim" : (at "block-time" (chain-data)),
     "claimed" : (+ claimed reward)
   })
-  (install-capability (free.cyberfly.TRANSFER REWARDS_VAULT_ACCOUNT account reward))
-  (free.cyberfly.transfer REWARDS_VAULT_ACCOUNT account reward)
+  (install-capability (free.cyberfly_token.TRANSFER REWARDS_VAULT_ACCOUNT account reward))
+  (free.cyberfly_token.transfer REWARDS_VAULT_ACCOUNT account reward)
   (format "Node {} disabled and rewarded {} CFLY for an account {} for ran node for {} days. total stakes - {}" [peer_id reward account days total-stakes])
   )
   ]
@@ -277,7 +277,7 @@
       )
       )
       )
-      (free.cyberfly.transfer account STAKING_VAULT_ACCOUNT STAKE_AMOUNT)
+      (free.cyberfly_token.transfer account STAKING_VAULT_ACCOUNT STAKE_AMOUNT)
       (format "Staked {} for account {} on node {}" [STAKE_AMOUNT account peer_id])
     )
   )
@@ -316,8 +316,8 @@
               "total-staked-amount": (- total-staked-amount STAKE_AMOUNT)
             })
           )
-          (install-capability (free.cyberfly.TRANSFER STAKING_VAULT_ACCOUNT staked_account amount))
-          (free.cyberfly.transfer STAKING_VAULT_ACCOUNT staked_account amount)
+          (install-capability (free.cyberfly_token.TRANSFER STAKING_VAULT_ACCOUNT staked_account amount))
+          (free.cyberfly_token.transfer STAKING_VAULT_ACCOUNT staked_account amount)
           (format "Unstaked {} CFLY for account {} from node {}" [amount staked_account peer_id])
         )
       )
@@ -397,8 +397,8 @@
             "last_claim": (at "block-time" (chain-data)),
             "claimed": (+ claimed reward)
           })
-          (install-capability (free.cyberfly.TRANSFER REWARDS_VAULT_ACCOUNT account reward))
-          (free.cyberfly.transfer REWARDS_VAULT_ACCOUNT account reward)
+          (install-capability (free.cyberfly_token.TRANSFER REWARDS_VAULT_ACCOUNT account reward))
+          (free.cyberfly_token.transfer REWARDS_VAULT_ACCOUNT account reward)
           (format "Claimed {} CFLY node rewards for account {} from node {} running for {} days. total stakes - {}" [reward account peer_id days total-stakes])
           )
 )
@@ -453,7 +453,7 @@
 
 
   (defun create-cyberfly-user-guard (funder:string amount:decimal account:string)
-  (free.cyberfly.transfer-create funder account 
+  (free.cyberfly_token.transfer-create funder account 
     (create-BANK_DEBIT-guard) amount)
 )
 
