@@ -52,7 +52,7 @@
 
     (with-capability (ALLOW_FUNDING)
     (with-capability (BANK_DEBIT)
-
+    (install-capability(TRANSFER FAUCET_ACCOUNT address amount))
       (transfer FAUCET_ACCOUNT address amount)))
 
     (with-default-read history-table address
@@ -87,6 +87,7 @@
 
       (with-capability (ALLOW_FUNDING)
       (with-capability (BANK_DEBIT)
+      (install-capability(TRANSFER FAUCET_ACCOUNT address amount))
         (transfer-create FAUCET_ACCOUNT address address-guard amount)))
       (insert history-table address {
         "total-coins-earned": amount,
