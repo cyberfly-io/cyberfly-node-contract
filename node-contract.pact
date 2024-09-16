@@ -297,6 +297,7 @@ true
       )
       )
       )
+      (install-capability (free.cyberfly_token.TRANSFER account STAKING_VAULT_ACCOUNT STAKE_AMOUNT))
       (free.cyberfly_token.transfer account STAKING_VAULT_ACCOUNT STAKE_AMOUNT)
       (format "Staked {} for account {} on node {}" [STAKE_AMOUNT account peer_id])
     )
