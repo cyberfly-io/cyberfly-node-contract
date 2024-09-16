@@ -71,6 +71,21 @@
   true
 )
 
+(defcap STAKE()
+@event
+true
+)
+
+(defcap UNSTAKE()
+@event
+true
+)
+
+(defcap NEWNODE()
+@event
+true
+)
+
 (defun is-node-account (peer_id:string account:string)
 (with-read node-table peer_id
   {"account":=node_account}
@@ -84,6 +99,8 @@
 (enforce (is-node-active peer_id) "Node already exists")
 (enforce (is-principal account)  "Invalid account structure: non-principal account")
 
+(with-capability (NEWNODE)
+
 (insert node-table peer_id {
   "peer_id": peer_id,
   "multiaddr": multiaddr,
@@ -93,6 +110,8 @@
   "registered_at": (at "block-time" (chain-data)),
   "last_updated": (at "block-time" (chain-data))
 })
+)
+
 )
   
   (defun update-node(peer_id:string
@@ -237,7 +256,8 @@
   (defun stake(account:string peer_id:string)
     (with-capability (ACCOUNT_AUTH account)
     (with-capability (NODE_GUARD peer_id)
-      
+    (with-capability (STAKE)
+
       
       (let* (
       (node-active (is-node-active peer_id))
@@ -280,12 +300,15 @@
       (free.cyberfly_token.transfer account STAKING_VAULT_ACCOUNT STAKE_AMOUNT)
       (format "Staked {} for account {} on node {}" [STAKE_AMOUNT account peer_id])
     )
+    )
   )
   )
 
   (defun unstake(account:string peer_id:string)
   (with-capability (ACCOUNT_AUTH account)
     (with-capability (BANK_DEBIT)
+    (with-capability (UNSTAKE)
+
       (let* (
         (staked (is-staked peer_id))
         (staked-account (is-staked-account account peer_id))
@@ -322,6 +345,7 @@
         )
       )
     )
+  )
   )
 )
 
