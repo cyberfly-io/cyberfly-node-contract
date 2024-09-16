@@ -258,7 +258,6 @@ true
     (with-capability (NODE_GUARD peer_id)
     (with-capability (STAKE)
 
-      
       (let* (
       (node-active (is-node-active peer_id))
       (node-account (is-node-account peer_id account))
@@ -297,12 +296,10 @@ true
       )
       )
       )
-      (install-capability (free.cyberfly_token.TRANSFER account STAKING_VAULT_ACCOUNT STAKE_AMOUNT))
       (free.cyberfly_token.transfer account STAKING_VAULT_ACCOUNT STAKE_AMOUNT)
       (format "Staked {} for account {} on node {}" [STAKE_AMOUNT account peer_id])
     )
-    )
-  )
+  ))
   )
 
   (defun unstake(account:string peer_id:string)
