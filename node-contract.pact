@@ -96,11 +96,12 @@ true
 
 (defun new-node(peer_id:string status:string multiaddr:string account:string guard:keyset)
 
-(enforce (is-node-active peer_id) "Node already exists")
-(enforce (is-principal account)  "Invalid account structure: non-principal account")
-
 (with-capability (NEWNODE)
-
+(let (
+  (node-active (is-node-active peer_id))
+)
+(enforce (not node-active) "Node already exists")
+(enforce (is-principal account)  "Invalid account structure: non-principal account")
 (insert node-table peer_id {
   "peer_id": peer_id,
   "multiaddr": multiaddr,
@@ -110,6 +111,8 @@ true
   "registered_at": (at "block-time" (chain-data)),
   "last_updated": (at "block-time" (chain-data))
 })
+)
+
 )
 
 )
