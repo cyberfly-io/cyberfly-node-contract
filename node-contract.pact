@@ -56,7 +56,7 @@
 
   (defcap ACCOUNT_AUTH (account:string)
   @doc "Capability to ensure the caller is the account owner"
-  (enforce-guard (at "guard" (coin.details account)))
+  (enforce-guard (at "guard" (free.cyberfly_token.details account)))
 )
 
   
