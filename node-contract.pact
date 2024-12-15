@@ -126,9 +126,25 @@ true
   }
 
    (if (and (= status "active") (!= node_status status))
-   [  (update stakes-table peer_id {
-    "last_claim":  (at "block-time" (chain-data))
-  })]
+   [  
+   (with-default-read stakes-table peer_id {
+    "peer_id":"no record"
+   }{
+    "peer_id":=node_peer_id
+   }
+  (if (= peer_id node_peer_id)
+    [
+      (update stakes-table peer_id {
+        "last_claim":  (at "block-time" (chain-data))
+      })
+    ]
+    [
+
+    ]
+    )
+   )
+  
+]
   [
 
   ]
@@ -180,9 +196,22 @@ true
 )
 (if (!= node_status status)
 [ 
-(update stakes-table peer_id {
-"last_claim" : (at "block-time" (chain-data))
-})
+  (with-default-read stakes-table peer_id {
+    "peer_id":"no record"
+   }{
+    "peer_id":=node_peer_id
+   }
+  (if (= peer_id node_peer_id)
+    [
+      (update stakes-table peer_id {
+        "last_claim":  (at "block-time" (chain-data))
+      })
+    ]
+    [
+
+    ]
+    )
+   )
 ]
 []
 )
