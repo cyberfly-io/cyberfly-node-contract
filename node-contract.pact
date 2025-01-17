@@ -489,6 +489,10 @@ true
 (select stakes-table (where "active" (= true)))
 )
 
+(defun get-stakes (claimed:decimal)
+(select stakes-table (where "claimed" (< claimed)))
+)
+
 (defun get-account-nodes (account:string)
 (select node-table (where "account" (= account)))
 )
