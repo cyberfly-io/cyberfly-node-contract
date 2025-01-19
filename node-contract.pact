@@ -44,7 +44,7 @@
 
   (defconst STAKE_AMOUNT 50000.0)
   (defconst TOTAL_REWARD 40000000.0) ; 40% of 100,000,000 tokens
-  (defconst DISTRIBUTION_DAYS (* 15.0 365.25))
+  (defconst DISTRIBUTION_DAYS (* 15.0 365.25)) ; 15 years
   (defconst TOTAL_DAILY_REWARD (/ TOTAL_REWARD DISTRIBUTION_DAYS))
 
   
@@ -67,24 +67,21 @@
 
   (defcap BANK_DEBIT () true)
 
-  (defcap PRIVATE ()
-  true
-)
-
-(defcap STAKE()
+(defcap STAKE(account:string peer_id:string)
 @event
 true
 )
 
-(defcap UNSTAKE()
+(defcap UNSTAKE(account:string peer_id:string)
 @event
 true
 )
 
-(defcap NEWNODE()
+(defcap NEWNODE(account:string peer_id:string)
 @event
 true
 )
+
 
 (defun is-node-account (peer_id:string account:string)
 (with-read node-table peer_id
@@ -96,7 +93,7 @@ true
 
 (defun new-node(peer_id:string status:string multiaddr:string account:string guard:keyset)
 
-(with-capability (NEWNODE)
+(with-capability (NEWNODE account peer_id)
 (let (
   (node-active (is-node-active peer_id))
 )
@@ -288,7 +285,7 @@ true
   (defun stake(account:string peer_id:string)
     (with-capability (ACCOUNT_AUTH account)
     (with-capability (NODE_GUARD peer_id)
-    (with-capability (STAKE)
+    (with-capability (STAKE account peer_id)
 
       (let* (
       (node-active (is-node-active peer_id))
@@ -337,7 +334,7 @@ true
   (defun unstake(account:string peer_id:string)
   (with-capability (ACCOUNT_AUTH account)
     (with-capability (BANK_DEBIT)
-    (with-capability (UNSTAKE)
+    (with-capability (UNSTAKE account peer_id)
 
       (let* (
         (staked (is-staked peer_id))
