@@ -84,13 +84,13 @@ true
 true
 )
 
-(defcap NEWNODE(account:string peer_id:string)
+(defcap NEW_NODE(account:string peer_id:string)
 @event
 true
 )
 
 
-(defcap DISABLENODE(peer_id:string)
+(defcap DISABLE_NODE(peer_id:string)
 @event
 true
 )
@@ -106,7 +106,7 @@ true
 
 (defun new-node(peer_id:string status:string multiaddr:string account:string guard:keyset)
 
-(with-capability (NEWNODE account peer_id)
+(with-capability (NEW_NODE account peer_id)
 (let (
   (node-active (is-node-active peer_id))
 )
@@ -190,7 +190,7 @@ true
     multiaddr:string
     status:string)
 @doc "node can be updated by monitoring node"
-(with-capability (DISABLENODE peer_id)
+(with-capability (DISABLE_NODE peer_id)
 (with-capability (ADMIN_GUARD)
 (with-capability (BANK_DEBIT)
 (with-read node-table peer_id {
