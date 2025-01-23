@@ -38,9 +38,16 @@
       total-staked-amount:decimal
      )
 
+     (defschema node-count-schema
+      total-node:integer
+      total-active-node:integer
+     )
+
    (deftable node-table:{node-schema})
    (deftable stakes-table:{stake-schema})
    (deftable stake-count-table:{stake-count-schema})
+   (deftable node-count-table:{node-count-schema})
+
 
   (defconst STAKE_AMOUNT 50000.0)
   (defconst TOTAL_REWARD 40000000.0) ; 40% of 100,000,000 tokens
@@ -108,10 +115,19 @@ true
   "registered_at": (at "block-time" (chain-data)),
   "last_updated": (at "block-time" (chain-data))
 })
+(with-read node-count-table "count"
+{"total-node":=total-node,
+ "total-active-node":=total-active-node}
+(update node-count-table "count" {
+  "total-node": (+ total-node 1),
+  "total-active-node": (+ total-active-node 1)
+}
+ )
 )
 
 )
 
+)
 )
   
   (defun update-node(peer_id:string
@@ -123,7 +139,15 @@ true
   }
 
    (if (and (= status "active") (!= node_status status))
-   [  
+   [
+    (with-read node-count-table "count"
+{"total-node":=total-node,
+ "total-active-node":=total-active-node}
+(update node-count-table "count" {
+  "total-active-node": (+ total-active-node 1)
+}
+ )
+)  
    (with-default-read stakes-table peer_id {
     "peer_id":"no record"
    }{
@@ -151,11 +175,12 @@ true
                  ,"status":status
                  ,"last_updated": (at "block-time" (chain-data))
                 })
+    
   )
   )
   )
   
-  (defun update-node-admin(peer_id:string 
+(defun disable-node-admin(peer_id:string 
     multiaddr:string
     status:string)
 @doc "node can be updated by monitoring node"
@@ -165,6 +190,17 @@ true
 "account" := account,
 "status" := node_status
 }
+
+(with-read node-count-table "count"
+{
+ "total-active-node":=total-active-node}
+(update node-count-table "count" {
+  "total-active-node": (- total-active-node 1)
+}
+ )
+)
+
+
 (if (is-staked peer_id)
 [
 (if (and (= status "inactive") (!= node_status status))
@@ -188,7 +224,8 @@ true
   ]
   "No pending reward"
   )
-  )]
+  )
+]
 []
 )
 (if (!= node_status status)
@@ -225,7 +262,7 @@ true
 )
 )
   
-  (defun update-node-account(peer_id:string
+(defun update-node-account(peer_id:string
     account:string
     guard:keyset)
     @doc "Monitoring node can update node's reward account and guard"
@@ -280,6 +317,10 @@ true
   "total-stakes":0,
   "total-staked-amount":0.0
  })
+  (insert node-count-table "count" {
+    "total-node":0,
+    "total-active-node":0
+  })
 )
 )
   (defun stake(account:string peer_id:string)
@@ -498,6 +539,10 @@ true
 (read stake-count-table "count" ["total-stakes" "total-staked-amount"])
 )
 
+(defun get-node-count()
+(read node-count-table "count" ["total-node" "total-active-node"])
+)
+
 (defun get-user-stakes(account:string)
 @doc "Get all stakes for a specific user"
 (select stakes-table ["peer_id", "active", "amount", "claimed", "last_claim", "stake_time"]
@@ -527,3 +572,4 @@ true
 (create-table node-table)
 (create-table stakes-table)
 (create-table stake-count-table)
+(create-table node-count-table)
