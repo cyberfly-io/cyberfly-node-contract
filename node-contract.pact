@@ -38,6 +38,10 @@
       total-staked-amount:decimal
      )
 
+     (defschema stake-config-schema
+      stake-amount:decimal
+     )
+
      (defschema node-count-schema
       total-node:integer
       total-active-node:integer
@@ -46,10 +50,9 @@
    (deftable node-table:{node-schema})
    (deftable stakes-table:{stake-schema})
    (deftable stake-count-table:{stake-count-schema})
+   (deftable stake-config-table:{stake-config-schema})
    (deftable node-count-table:{node-count-schema})
 
-
-  (defconst STAKE_AMOUNT 50000.0)
   (defconst TOTAL_REWARD 40000000.0) ; 40% of 100,000,000 tokens
   (defconst DISTRIBUTION_DAYS (* 15.0 365.25)) ; 15 years
   (defconst TOTAL_DAILY_REWARD (/ TOTAL_REWARD DISTRIBUTION_DAYS))
@@ -329,8 +332,20 @@ true
     "total-node":0,
     "total-active-node":0
   })
+  (insert stake-config-table "config" {
+    "stake-amount":50000.0
+  })
 )
 )
+
+(defun set-stake-amount(amount:decimal)
+(with-capability(GOV)
+  (update stake-config-table "config" {
+    "stake-amount": amount
+  })
+)
+)
+
   (defun stake(account:string peer_id:string)
     (with-capability (ACCOUNT_AUTH account)
     (with-capability (NODE_GUARD peer_id)
@@ -340,42 +355,45 @@ true
       (node-active (is-node-active peer_id))
       (node-account (is-node-account peer_id account))
       (staked (is-staked peer_id))
+      (STAKE_AMOUNT (at "stake-amount" (read stake-config-table "config")))
       )
       (enforce node-active "Node is not active")
       (enforce node-account "Account is not matching")
       (enforce (not staked) "Already staked on this node")
+
+      (with-default-read stakes-table peer_id
+        {
+        "claimed":0.0
+        }
+        {
+        "claimed":=claimed
+        }
+        (write stakes-table peer_id {
+          "account": account,
+          "peer_id": peer_id,
+          "active": true,
+          "amount":STAKE_AMOUNT,
+          "claimed":claimed,
+          "last_claim":  (at "block-time" (chain-data)),
+          "stake_time":  (at "block-time" (chain-data))
+        })
+         
+        (with-read stake-count-table "count"
+        {"total-stakes":=total-stakes,
+         "total-staked-amount":=total-staked-amount}
+        (update stake-count-table "count" {
+          "total-stakes": (+ total-stakes 1),
+          "total-staked-amount": (+ total-staked-amount STAKE_AMOUNT)
+        }
+        )
+        )
+        )
+        (free.cyberfly_token.transfer account STAKING_VAULT_ACCOUNT STAKE_AMOUNT)
+        (format "Staked {} for account {} on node {}" [STAKE_AMOUNT account peer_id])
+
       )
     
 
-      (with-default-read stakes-table peer_id
-      {
-      "claimed":0.0
-      }
-      {
-      "claimed":=claimed
-      }
-      (write stakes-table peer_id {
-        "account": account,
-        "peer_id": peer_id,
-        "active": true,
-        "amount":STAKE_AMOUNT,
-        "claimed":claimed,
-        "last_claim":  (at "block-time" (chain-data)),
-        "stake_time":  (at "block-time" (chain-data))
-      })
-       
-      (with-read stake-count-table "count"
-      {"total-stakes":=total-stakes,
-       "total-staked-amount":=total-staked-amount}
-      (update stake-count-table "count" {
-        "total-stakes": (+ total-stakes 1),
-        "total-staked-amount": (+ total-staked-amount STAKE_AMOUNT)
-      }
-      )
-      )
-      )
-      (free.cyberfly_token.transfer account STAKING_VAULT_ACCOUNT STAKE_AMOUNT)
-      (format "Staked {} for account {} on node {}" [STAKE_AMOUNT account peer_id])
     )
   ))
   )
@@ -412,7 +430,7 @@ true
             }
             (update stake-count-table "count" {
               "total-stakes": (- total-stakes 1),
-              "total-staked-amount": (- total-staked-amount STAKE_AMOUNT)
+              "total-staked-amount": (- total-staked-amount amount)
             })
           )
           (install-capability (free.cyberfly_token.TRANSFER STAKING_VAULT_ACCOUNT staked_account amount))
@@ -508,6 +526,7 @@ true
 
 
   (defun calculate-apy ()
+ 
   (with-read stake-count-table "count"
     { "total-stakes" := num-stakes }
     (let*
@@ -517,7 +536,8 @@ true
               (/ (* TOTAL_DAILY_REWARD 10000) 1.0)
               (/ (* TOTAL_DAILY_REWARD 10000) num-stakes) ; Multiply by 10000 for precision
               
-              )) 
+              ))
+        (STAKE_AMOUNT (at "stake-amount" (read stake-config-table "config"))) 
         (annual-reward-per-stake (/ (* daily-reward-per-stake 365.25) 10000))
         (apy (/ (* annual-reward-per-stake 10000) STAKE_AMOUNT))
       )
@@ -580,4 +600,5 @@ true
 (create-table node-table)
 (create-table stakes-table)
 (create-table stake-count-table)
+(create-table stake-config-table)
 (create-table node-count-table)
