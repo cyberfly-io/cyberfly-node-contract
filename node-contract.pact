@@ -90,6 +90,12 @@ true
 )
 
 
+(defcap DISABLENODE(peer_id:string)
+@event
+true
+)
+
+
 (defun is-node-account (peer_id:string account:string)
 (with-read node-table peer_id
   {"account":=node_account}
@@ -184,6 +190,7 @@ true
     multiaddr:string
     status:string)
 @doc "node can be updated by monitoring node"
+(with-capability (DISABLENODE peer_id)
 (with-capability (ADMIN_GUARD)
 (with-capability (BANK_DEBIT)
 (with-read node-table peer_id {
@@ -257,6 +264,7 @@ true
 "status" : status,
 "last_updated" : (at "block-time" (chain-data))
 })
+)
 )
 )
 )
