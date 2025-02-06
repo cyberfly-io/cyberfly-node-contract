@@ -346,6 +346,10 @@ true
 )
 )
 
+(defun get-stake-amount()
+(read stake-config-table "config" ["stake-amount"])
+)
+
   (defun stake(account:string peer_id:string)
     (with-capability (ACCOUNT_AUTH account)
     (with-capability (NODE_GUARD peer_id)
