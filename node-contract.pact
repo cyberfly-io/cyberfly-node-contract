@@ -87,6 +87,11 @@ true
 true
 )
 
+(defcap CLAIM(account:string peer_id:string)
+@event
+true
+)
+
 (defcap NEW_NODE(account:string peer_id:string)
 @event
 true
@@ -464,7 +469,7 @@ true
     (current-time (at "block-time" (chain-data)))
     (days-since-last-claim (round (/ (diff-time current-time last_claim) 86400.0) 2))
     (reward 
-      (if (>= days-since-last-claim 1.0)
+      (if (>= days-since-last-claim 0.25)
         (round (* (/ TOTAL_DAILY_REWARD total-stakes) days-since-last-claim) 2)
         0.0
       )
@@ -497,6 +502,7 @@ true
 
 (defun claim-reward (account:string peer_id:string)
     (with-capability (NODE_GUARD peer_id)
+    (with-capability (CLAIM account peer_id)
     (with-capability (BANK_DEBIT)
         (let* (
           (calc-result (calculate-days-and-reward peer_id))
@@ -528,6 +534,7 @@ true
 )
     )
     )
+)
   )
 
 
