@@ -496,7 +496,7 @@ true
 
 
 (defun claim-reward (account:string peer_id:string)
-    (with-capability (ACCOUNT_AUTH account)
+    (with-capability (NODE_GUARD peer_id)
     (with-capability (BANK_DEBIT)
         (let* (
           (calc-result (calculate-days-and-reward peer_id))
@@ -519,10 +519,12 @@ true
             "last_claim": (at "block-time" (chain-data)),
             "claimed": (+ claimed reward)
           })
-          (install-capability (free.cyberfly_token.TRANSFER REWARDS_VAULT_ACCOUNT account reward))
-          (free.cyberfly_token.transfer REWARDS_VAULT_ACCOUNT account reward)
-          (format "Claimed {} CFLY node rewards for account {} from node {} running for {} days. total stakes - {}" [reward account peer_id days total-stakes])
           )
+          (do
+            (install-capability (free.cyberfly_token.TRANSFER REWARDS_VAULT_ACCOUNT account reward))
+            (free.cyberfly_token.transfer REWARDS_VAULT_ACCOUNT account reward)
+            )
+         
 )
     )
     )
